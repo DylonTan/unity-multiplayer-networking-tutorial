@@ -15,6 +15,10 @@ namespace Besiege_Server
         public int id;
         public TCP tcp;
 
+        /// <summary>
+        ///  Creates a new client instance with a given client id
+        /// </summary>
+        /// <param name="_clientId">The client id</param>
         public Client(int _clientId)
         {
             // Initialize client id
@@ -32,12 +36,20 @@ namespace Besiege_Server
             private NetworkStream stream;
             private byte[] receiveBuffer;
 
+            /// <summary>
+            /// Creates a new tcp instance with a given id
+            /// </summary>
+            /// <param name="_id">The id</param>
             public TCP(int _id)
             {
                 // Initialize id
                 id = _id;
             }
 
+            /// <summary>
+            /// Connects a tcp client to the server
+            /// </summary>
+            /// <param name="_socket">The tcp client</param>
             public void Connect(TcpClient _socket)
             {
                 // Initialize tcp client
@@ -62,7 +74,10 @@ namespace Besiege_Server
                 Console.WriteLine($"{socket.Client.RemoteEndPoint} has successfully connected!");
             }
 
-            // Called when network stream read is complete
+            /// <summary>
+            /// Called when network stream read is complete
+            /// </summary>
+            /// <param name="_result">The result of the asynchronous operation</param>
             private void ReceiveCallback(IAsyncResult _result)
             {
                 try

@@ -15,6 +15,11 @@ namespace Besiege_Server
         public static Dictionary<int, Client> clients = new Dictionary<int, Client>();
         private static TcpListener tcpListener;
 
+        /// <summary>
+        /// Starts the server
+        /// </summary>
+        /// <param name="_maxPlayers">The max player count</param>
+        /// <param name="_port">The port</param>
         public static void Start(int _maxPlayers, int _port)
         {
             // Initialize max player count
@@ -40,7 +45,10 @@ namespace Besiege_Server
             Console.WriteLine($"Server listening on port {Port}");
         }
 
-        // Called when tcp client is trying to connect
+        /// <summary>
+        /// Called when a tcp client is trying to connect
+        /// </summary>
+        /// <param name="_result">The result of the asynchronous operation</param>
         private static void TCPConnectCallback(IAsyncResult _result)
         {
             // End accepting tcp clients and get tcp client instance
@@ -66,6 +74,9 @@ namespace Besiege_Server
             Console.WriteLine($"{_client.Client.RemoteEndPoint} failed to connect: Server full!");
         }
 
+        /// <summary>
+        /// Initializes dictionary of clients
+        /// </summary>
         private static void InitializeServerData()
         {
             for (int i = 1; i <= MaxPlayers; i++)
