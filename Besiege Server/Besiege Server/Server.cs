@@ -14,6 +14,8 @@ namespace Besiege_Server
         public static int Port { get; private set; }
         public static Dictionary<int, Client> clients = new Dictionary<int, Client>();
         private static TcpListener tcpListener;
+        public delegate void PacketHandler(int _fromClient, Packet _packet);
+        public static Dictionary<int, PacketHandler> packetHandlers;
 
         /// <summary>
         /// Starts the server
@@ -30,7 +32,7 @@ namespace Besiege_Server
 
             Console.WriteLine("Starting server...");
 
-            // Initialize additional server data (dictionary of clients)
+            // Initialize additional server data
             InitializeServerData();
 
             // Initialize tcp listener
@@ -75,7 +77,7 @@ namespace Besiege_Server
         }
 
         /// <summary>
-        /// Initializes dictionary of clients
+        /// Initializes server data
         /// </summary>
         private static void InitializeServerData()
         {
@@ -83,6 +85,12 @@ namespace Besiege_Server
             {
                 clients.Add(i, new Client(i));
             }
+
+            packetHandlers = new Dictionary<int, PacketHandler>()
+            {
+                { (int)ClientPackets.welcomeReceived, ServerHandle.WelcomeReceived }
+            };
+            Console.WriteLine("Initialized packet handlers");
         }
     }
 }

@@ -34,6 +34,7 @@ namespace Besiege_Server
 
             private readonly int id;
             private NetworkStream stream;
+            private Packet receivedData;
             private byte[] receiveBuffer;
 
             /// <summary>
@@ -64,14 +65,34 @@ namespace Besiege_Server
                 // Get network stream
                 stream = socket.GetStream();
 
+                receivedData = new Packet();
+
                 // Initialize receive buffer to a byte array of size 4096
                 receiveBuffer = new byte[dataBufferSize];
 
                 // Begin reading from network stream
                 stream.BeginRead(receiveBuffer, 0, dataBufferSize, ReceiveCallback, null);
 
-                // TODO: send welcome packet
+                // Send welcome packet
+                ServerSend.Welcome(id, "Welcome to the server!");
+
                 Console.WriteLine($"{socket.Client.RemoteEndPoint} has successfully connected!");
+            }
+
+            public void SendData(Packet _packet)
+            {
+                try
+                {
+                    if (socket != null)
+                    {
+                        stream.BeginWrite(_packet.ToArray(), 0, _packet.Length(), null, null);
+                    }
+                }
+                catch (Exception _ex)
+                {
+                    Console.WriteLine($"Error sending data to player {id} via TCP: {_ex}");
+                    //TODO: disconnect
+                }
             }
 
             /// <summary>
@@ -98,16 +119,63 @@ namespace Besiege_Server
                     // Copy data from receive buffer to data buffer
                     Array.Copy(receiveBuffer, _data, _byteLength);
 
-                    // TODO: handle data
+                    receivedData.Reset(HandleData(_data)); 
 
                     // Begin reading from network stream again
                     stream.BeginRead(receiveBuffer, 0, dataBufferSize, ReceiveCallback, null);
                 }
                 catch (Exception _ex)
                 {
-                    Console.WriteLine("Error receibing TCP data: " + _ex);
+                    Console.WriteLine("Error receiving TCP data: " + _ex);
                     // TODO: disconnect
                 }
+            }
+
+            private bool HandleData(byte[] _data)
+            {
+                int _packetLength = 0;
+
+                receivedData.SetBytes(_data);
+
+                if (receivedData.UnreadLength() >= 4)
+                {
+                    _packetLength = receivedData.ReadInt();
+                    if (_packetLength <= 0)
+                    {
+                        return true;
+                    }
+                }
+
+                while (_packetLength > 0 && _packetLength <= receivedData.UnreadLength())
+                {
+                    byte[] _packetBytes = receivedData.ReadBytes(_packetLength);
+                    ThreadManager.ExecuteOnMainThread(() =>
+                    {
+                        using (Packet _packet = new Packet(_packetBytes))
+                        {
+                            int _packetId = _packet.ReadInt();
+                            Server.packetHandlers[_packetId](id, _packet);
+                        }
+                    });
+
+                    _packetLength = 0;
+
+                    if (receivedData.UnreadLength() >= 4)
+                    {
+                        _packetLength = receivedData.ReadInt();
+                        if (_packetLength <= 0)
+                        {
+                            return true;
+                        }
+                    }
+                }
+
+                if (_packetLength <= 1)
+                {
+                    return true;
+                }
+
+                return false;
             }
         }
     }
