@@ -14,6 +14,7 @@ namespace Besiege_Server
         public static int Port { get; private set; }
         public static Dictionary<int, Client> clients = new Dictionary<int, Client>();
         private static TcpListener tcpListener;
+        private static UdpClient udpListener;
         public delegate void PacketHandler(int _fromClient, Packet _packet);
         public static Dictionary<int, PacketHandler> packetHandlers;
 
@@ -43,6 +44,12 @@ namespace Besiege_Server
 
             // Begin accepting tcp clients
             tcpListener.BeginAcceptTcpClient(new AsyncCallback(TCPConnectCallback), null);
+
+            // Initialize udp client
+            udpListener = new UdpClient(Port);
+
+            // Begin receiving udp datagrams
+            udpListener.BeginReceive(UDPReceiveCallback, null);
 
             Console.WriteLine($"Server listening on port {Port}");
         }
@@ -76,6 +83,67 @@ namespace Besiege_Server
             Console.WriteLine($"{_client.Client.RemoteEndPoint} failed to connect: Server full!");
         }
 
+        private static void UDPReceiveCallback(IAsyncResult _result)
+        {
+            try
+            {
+                // Initialize client end point with temporary value
+                IPEndPoint _clientEndPoint = new IPEndPoint(IPAddress.Any, 0);
+
+                // End receiving udp datagram and overwrites client end point with correct value
+                byte[] _data = udpListener.EndReceive(_result, ref _clientEndPoint);
+
+                // Begin receiving udp datagrams again
+                udpListener.BeginReceive(UDPReceiveCallback, null);
+
+                if (_data.Length < 4)
+                {
+                    // TODO: disconnect;
+                    return;
+                }
+
+                using (Packet _packet = new Packet(_data))
+                {
+                    int _clientId = _packet.ReadInt();
+
+                    if (_clientId == 0)
+                    {
+                        return;
+                    }
+
+                    if (clients[_clientId].udp.endPoint == null)
+                    {
+                        clients[_clientId].udp.Connect(_clientEndPoint);
+                        return;
+                    }
+
+                    if (clients[_clientId].udp.endPoint.ToString() == _clientEndPoint.ToString())
+                    {
+                        clients[_clientId].udp.HandleData(_packet);
+                    }
+                }
+            }
+            catch (Exception _ex)
+            {
+                Console.WriteLine($"Error receiving UDP data: {_ex}");
+            }
+        }
+
+        public static void SendUDPData(IPEndPoint _clientEndPoint, Packet _packet)
+        {
+            try
+            {
+                if (_clientEndPoint != null)
+                {
+                    udpListener.BeginSend(_packet.ToArray(), _packet.Length(), _clientEndPoint, null, null);
+                }
+            }
+            catch (Exception _ex)
+            {
+                Console.Write($"Error sending data to {_clientEndPoint} via UDP: {_ex}");
+            }
+        }
+
         /// <summary>
         /// Initializes server data
         /// </summary>
@@ -88,7 +156,8 @@ namespace Besiege_Server
 
             packetHandlers = new Dictionary<int, PacketHandler>()
             {
-                { (int)ClientPackets.welcomeReceived, ServerHandle.WelcomeReceived }
+                { (int)ClientPackets.welcomeReceived, ServerHandle.WelcomeReceived },
+                { (int)ClientPackets.udpTestReceived, ServerHandle.UDPTestReceived }
             };
             Console.WriteLine("Initialized packet handlers");
         }

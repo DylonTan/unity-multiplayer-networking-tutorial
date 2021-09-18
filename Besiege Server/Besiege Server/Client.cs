@@ -14,6 +14,7 @@ namespace Besiege_Server
 
         public int id;
         public TCP tcp;
+        public UDP udp;
 
         /// <summary>
         ///  Creates a new client instance with a given client id
@@ -26,6 +27,9 @@ namespace Besiege_Server
 
             // Initialize tcp instance
             tcp = new TCP(id);
+
+            // Initialize udp instance
+            udp = new UDP(id);
         }
 
         public class TCP
@@ -65,6 +69,7 @@ namespace Besiege_Server
                 // Get network stream
                 stream = socket.GetStream();
 
+                // Initialize received data packet instance
                 receivedData = new Packet();
 
                 // Initialize receive buffer to a byte array of size 4096
@@ -83,8 +88,10 @@ namespace Besiege_Server
             {
                 try
                 {
+                    // Check if socket is initialized
                     if (socket != null)
                     {
+                        // Begin writing packet byte array to network stream
                         stream.BeginWrite(_packet.ToArray(), 0, _packet.Length(), null, null);
                     }
                 }
@@ -113,12 +120,13 @@ namespace Besiege_Server
                         return;
                     }
 
-                    // Initialize data buffer to a byte array of size 4096
+                    // Initialize data buffer to a byte array
                     byte[] _data = new byte[_byteLength];
 
                     // Copy data from receive buffer to data buffer
                     Array.Copy(receiveBuffer, _data, _byteLength);
 
+                    // Reset received data packet instance depending on result of handling data
                     receivedData.Reset(HandleData(_data)); 
 
                     // Begin reading from network stream again
@@ -133,36 +141,54 @@ namespace Besiege_Server
 
             private bool HandleData(byte[] _data)
             {
+                // Initialize packet length
                 int _packetLength = 0;
 
+                // Append bytes of data provided to received data packet instance
                 receivedData.SetBytes(_data);
 
+                // Check if unread length of received data packet instance is more than or equal to 4 (size of int)
                 if (receivedData.UnreadLength() >= 4)
                 {
+                    // Get packet content's length by reading int of received data packet instance
                     _packetLength = receivedData.ReadInt();
+
+                    // Check if packet content's length is less than or equal to 0
                     if (_packetLength <= 0)
                     {
                         return true;
                     }
                 }
 
+                // Loop as long as packet length is more than 0 and less than or equal to unread length of received data packet instance
                 while (_packetLength > 0 && _packetLength <= receivedData.UnreadLength())
                 {
+                    // Get packet content by reading bytes of size packet content's length
                     byte[] _packetBytes = receivedData.ReadBytes(_packetLength);
+
+                    // Execute on main thread
                     ThreadManager.ExecuteOnMainThread(() =>
                     {
                         using (Packet _packet = new Packet(_packetBytes))
                         {
+                            // Get packet id by reading int of packet instance
                             int _packetId = _packet.ReadInt();
+
+                            // Call appropriate packet handler
                             Server.packetHandlers[_packetId](id, _packet);
                         }
                     });
 
+                    // Reset packet length
                     _packetLength = 0;
 
+                    // Check if unread length of received data packet instance is more than or equal to 4 (size of int)
                     if (receivedData.UnreadLength() >= 4)
                     {
+                        // Get packet content's length by reading int of received data packet instance
                         _packetLength = receivedData.ReadInt();
+
+                        // Check if packet content's length is less than or equal to 0
                         if (_packetLength <= 0)
                         {
                             return true;
@@ -176,6 +202,44 @@ namespace Besiege_Server
                 }
 
                 return false;
+            }
+        }
+
+        public class UDP
+        {
+            public IPEndPoint endPoint;
+
+            private int id;
+
+            public UDP(int _id)
+            {
+                id = _id;
+            }
+
+            public void Connect(IPEndPoint _endPoint)
+            {
+                endPoint = _endPoint;
+                ServerSend.UDPTest(id);
+            }
+
+            public void SendData(Packet _packet)
+            {
+                Server.SendUDPData(endPoint, _packet);
+            }
+
+            public void HandleData(Packet _packetData)
+            {
+                int _packetLength = _packetData.ReadInt();
+                byte[] _packetBytes = _packetData.ReadBytes(_packetLength);
+
+                ThreadManager.ExecuteOnMainThread(() =>
+                {
+                    using (Packet _packet = new Packet(_packetBytes))
+                    {
+                        int _packetId = _packet.ReadInt();
+                        Server.packetHandlers[_packetId](id, _packet);
+                    }
+                });
             }
         }
     }

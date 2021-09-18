@@ -17,13 +17,17 @@ namespace Besiege_Server
             Console.Title = "Besiege Server";
             isRunning = true;
 
+            // Create a new thread
             Thread mainThread = new Thread(new ThreadStart(MainThread));
+
+            // Start the thread
             mainThread.Start();
 
             // Start server on port 26950 with a max player count of 10
             Server.Start(10, 26950);
         }
 
+        // Called when thread gets started
         private static void MainThread()
         {
             Console.Write($"Main thread started. Running at {Constants.TICKS_PER_SEC} ticks per second");
