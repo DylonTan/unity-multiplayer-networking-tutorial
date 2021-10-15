@@ -1,2 +1,2 @@
 # Besiege Multiplayer Networking
-A barebones multiplayer game networking solution
+A bare-bones multiplayer game networking solution
